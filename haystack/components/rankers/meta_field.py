@@ -365,12 +365,13 @@ class MetaFieldRanker:
 
         try:
             meta_values = [parse_fn(d.meta[self.meta_field]) for d in docs_with_meta_field]
-        except ValueError as error:
+        except (ValueError, OverflowError) as error:
             logger.warning(
-                "Tried to parse the meta values of Documents with IDs {document_ids}, but got ValueError with the "
+                "Tried to parse the meta values of Documents with IDs {document_ids}, but got {error_type} with the "
                 "message: {error}\n"
                 "Skipping parsing of the meta values.",
                 document_ids=",".join([doc.id for doc in docs_with_meta_field]),
+                error_type=type(error).__name__,
                 error=error,
             )
             meta_values = [d.meta[self.meta_field] for d in docs_with_meta_field]

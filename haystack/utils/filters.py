@@ -176,7 +176,7 @@ def _parse_date(value: str) -> datetime:
     except (ValueError, TypeError):
         try:
             return dateutil.parser.parse(value)
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError, OverflowError) as exc:
             msg = (
                 "Can't compare strings using operators '>', '>=', '<', '<='. "
                 "Strings are only comparable if they are ISO formatted dates."

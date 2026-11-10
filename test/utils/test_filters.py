@@ -783,6 +783,15 @@ def test_document_matches_filter_raises_filter_error_for_datetime_and_numeric_va
         document_matches_filter(filters, Document(meta={"date": datetime(2025, 1, 1)}))
 
 
+@pytest.mark.parametrize("operator", [">", ">=", "<", "<="])
+def test_document_matches_filter_raises_filter_error_for_overflowing_numeric_string(operator):
+    # dateutil raises OverflowError (not ValueError) for numeric strings that don't fit in a C long
+    filters = {"field": "meta.date", "operator": operator, "value": "2020-01-01"}
+
+    with pytest.raises(FilterError, match="Strings are only comparable if they are ISO formatted dates"):
+        document_matches_filter(filters, Document(meta={"date": "9" * 400}))
+
+
 def test_dotted_field_with_unknown_root_is_treated_as_missing():
     # A dotted field whose root is not a Document attribute must be treated as a missing field
     # (matching the documented "treat it as None" behavior and non-dotted unknown fields),
