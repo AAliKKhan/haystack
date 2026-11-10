@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import re
 import threading
@@ -216,6 +217,24 @@ class TestTool:
         assert tool.outputs_to_string == {"handler": format_string}
         assert tool.inputs_from_state == {"location": "city"}
         assert tool.outputs_to_state == {"documents": {"source": "docs", "handler": get_weather_report}}
+
+    def test_from_dict_does_not_mutate_input(self):
+        tool = Tool(
+            name="weather",
+            description="Get weather report",
+            parameters=parameters,
+            function=get_weather_report,
+            outputs_to_string={"handler": format_string},
+            outputs_to_state={"documents": {"source": "docs", "handler": get_weather_report}},
+        )
+        tool_dict = tool.to_dict()
+        expected = copy.deepcopy(tool_dict)
+
+        Tool.from_dict(tool_dict)
+
+        assert tool_dict == expected
+        # the same payload can be deserialized again
+        assert Tool.from_dict(tool_dict).function == get_weather_report
 
     @pytest.mark.parametrize("output_key", ["source", "handler", "raw_result"])
     def test_outputs_to_string_reserved_output_names_round_trip(self, output_key):

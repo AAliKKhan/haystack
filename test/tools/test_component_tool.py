@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import os
 from collections.abc import Callable
@@ -855,6 +856,17 @@ class TestComponentToolInAgent:
         pipeline_yaml = pipeline.dumps()
         new_pipeline = Pipeline.loads(pipeline_yaml)
         assert new_pipeline.to_dict() == pipeline_dict
+
+    def test_from_dict_does_not_mutate_input(self):
+        tool = ComponentTool(component=SimpleComponent(), name="simple_tool", description="A simple tool")
+        tool_dict = tool.to_dict()
+        expected = copy.deepcopy(tool_dict)
+
+        ComponentTool.from_dict(tool_dict)
+
+        assert tool_dict == expected
+        # the same payload can be deserialized again
+        assert isinstance(ComponentTool.from_dict(tool_dict)._component, SimpleComponent)
 
     def test_component_tool_serde(self):
         tool = ComponentTool(

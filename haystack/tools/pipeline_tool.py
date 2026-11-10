@@ -231,7 +231,8 @@ class PipelineTool(ComponentTool):
         :returns:
             The deserialized PipelineTool instance.
         """
-        inner_data = data["data"]
+        # Work on a copy so that the caller's dictionary is left untouched
+        inner_data = dict(data["data"])
         # `is_pipeline_async` is a legacy key kept only for backward compatibility
         inner_data.pop("is_pipeline_async", None)
         pipeline = Pipeline.from_dict(inner_data["pipeline"])
