@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    Numeric strings too large for ``dateutil`` to parse as a date no longer crash with an ``OverflowError``.
+    Ordering filters (``>``, ``>=``, ``<``, ``<=``) now raise the documented ``FilterError`` for such metadata values,
+    and ``MetaFieldRanker`` with ``meta_value_type="date"`` logs a warning and falls back to the raw values, like it
+    already does for other unparsable values.

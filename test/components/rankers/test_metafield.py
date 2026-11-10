@@ -173,6 +173,18 @@ class TestMetaFieldRanker:
                 in caplog.text
             )
 
+    def test_warning_if_date_meta_value_overflows(self, caplog):
+        # dateutil raises OverflowError (not ValueError) for numeric strings that don't fit in a C long
+        ranker = MetaFieldRanker(meta_field="date", meta_value_type="date")
+        docs = [
+            Document(id="1", content="abc", meta={"date": "12345678901234567890"}),
+            Document(id="2", content="abc", meta={"date": "2020-01-01"}),
+        ]
+        with caplog.at_level(logging.WARNING):
+            output = ranker.run(documents=docs)
+        assert len(output["documents"]) == 2
+        assert "Tried to parse the meta values of Documents with IDs 1,2, but got OverflowError" in caplog.text
+
     def test_warning_meta_value_type_not_all_strings(self, caplog):
         ranker = MetaFieldRanker(meta_field="rating", meta_value_type="float")
         docs_before = [
