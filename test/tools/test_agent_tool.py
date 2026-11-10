@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import os
 
@@ -256,6 +257,23 @@ class TestAgentTool:
         assert agent_tool.outputs_to_string == {"handler": agent_result_to_string}
         assert agent_tool.outputs_to_state == {"notes": {"source": "last_message"}}
         assert agent_tool.to_dict()["data"]["parameters"] is None
+
+    def test_from_dict_does_not_mutate_input(self):
+        agent = Agent(chat_generator=MockChatGenerator(response_fn=_echo_last_message))
+        tool_dict = AgentTool(
+            agent=agent,
+            name="research",
+            description="Research a question.",
+            outputs_to_string={"handler": agent_result_to_string},
+            outputs_to_state={"notes": {"source": "last_message"}},
+        ).to_dict()
+        expected = copy.deepcopy(tool_dict["data"])
+        expected.pop("agent")  # the nested agent payload is deserialized by Agent.from_dict
+
+        AgentTool.from_dict(tool_dict)
+
+        assert {key: value for key, value in tool_dict["data"].items() if key != "agent"} == expected
+        assert isinstance(tool_dict["data"]["agent"], dict)
 
     def test_from_dict_with_explicit_parameters(self):
         parameters = {

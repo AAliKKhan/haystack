@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    ``Tool.from_dict``, ``ComponentTool.from_dict``, ``AgentTool.from_dict`` and ``PipelineTool.from_dict`` no longer
+    modify the dictionary they receive. Previously, deserializing the same payload a second time failed (for example
+    ``AttributeError: 'function' object has no attribute 'split'`` for a ``Tool``), which also affected
+    ``Toolset.from_dict``.

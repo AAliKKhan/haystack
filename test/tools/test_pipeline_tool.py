@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import os
 from unittest.mock import ANY
 
@@ -140,6 +141,24 @@ class TestPipelineTool:
         assert tool._output_mapping == recreated_tool._output_mapping
         assert tool.parameters == recreated_tool.parameters
         assert isinstance(recreated_tool._pipeline, Pipeline)
+
+    def test_from_dict_does_not_mutate_input(self, sample_pipeline):
+        tool = PipelineTool(
+            pipeline=sample_pipeline,
+            input_mapping={"query": ["bm25_retriever.query"]},
+            output_mapping={"ranker.documents": "documents"},
+            name="test_tool",
+            description="A test tool",
+        )
+        tool_dict = tool.to_dict()
+        tool_dict["data"]["is_pipeline_async"] = False  # legacy key that from_dict drops
+        expected = copy.deepcopy(tool_dict)
+
+        PipelineTool.from_dict(tool_dict)
+
+        assert tool_dict == expected
+        # the same payload can be deserialized again
+        assert isinstance(PipelineTool.from_dict(tool_dict)._pipeline, Pipeline)
 
     def test_from_dict_ignores_legacy_is_pipeline_async(self, sample_pipeline):
         tool = PipelineTool(

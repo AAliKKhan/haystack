@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 from typing import Annotated, Any
 from unittest.mock import Mock
 
@@ -255,6 +256,16 @@ class TestToolsetWithAgent:
         new_agent = Agent.from_dict(agent_dict)
         assert isinstance(new_agent.tools, Toolset)
         assert [tool.name for tool in new_agent.tools] == ["add", "multiply"]
+
+    def test_from_dict_does_not_mutate_input(self, add_tool, multiply_tool):
+        toolset_dict = Toolset([add_tool, multiply_tool]).to_dict()
+        expected = copy.deepcopy(toolset_dict)
+
+        Toolset.from_dict(toolset_dict)
+
+        assert toolset_dict == expected
+        # the same payload can be deserialized again
+        assert [tool.name for tool in Toolset.from_dict(toolset_dict)] == ["add", "multiply"]
 
     def test_agent_serde_with_list_of_toolsets(self, weather_tool, add_tool, monkeypatch):
         """Test serialization and deserialization of Agent with a list of Toolsets."""

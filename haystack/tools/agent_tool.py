@@ -257,7 +257,8 @@ class AgentTool(ComponentTool):
         :returns:
             The deserialized AgentTool instance.
         """
-        inner_data = data["data"]
+        # Work on a copy so that the caller's dictionary is left untouched
+        inner_data = dict(data["data"])
         deserialize_component_inplace(data=inner_data, key="agent")
 
         outputs_to_state = inner_data.get("outputs_to_state")

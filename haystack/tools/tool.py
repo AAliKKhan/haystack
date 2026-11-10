@@ -341,7 +341,8 @@ class Tool:
         :returns:
             Deserialized Tool.
         """
-        init_parameters = data["data"]
+        # Work on a copy so that the caller's dictionary is left untouched
+        init_parameters = dict(data["data"])
         init_parameters["function"] = (
             deserialize_callable(init_parameters["function"]) if init_parameters.get("function") is not None else None
         )
