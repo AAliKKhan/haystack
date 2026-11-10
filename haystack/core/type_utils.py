@@ -193,14 +193,17 @@ def _strict_types_are_compatible(sender: Any, receiver: Any) -> bool:  # noqa: P
         return _check_callable_compatibility(sender_args, receiver_args)
 
     # Handle bare types
+    sender_is_bare = not sender_args
     if not sender_args and sender_origin:
         sender_args = (Any,)
     if not receiver_args and receiver_origin:
         receiver_args = (Any,) * (len(sender_args) if sender_args else 1)
 
-    return not (len(sender_args) > len(receiver_args)) and all(
-        _strict_types_are_compatible(*args) for args in zip(sender_args, receiver_args, strict=False)
-    )
+    # The number of arguments must match, e.g. `tuple[int]` can't be sent to `tuple[int, str]`.
+    # A bare sender (e.g. `dict`) stands for any arguments, so it only needs to not have more than the receiver.
+    if len(sender_args) > len(receiver_args) or (not sender_is_bare and len(sender_args) < len(receiver_args)):
+        return False
+    return all(_strict_types_are_compatible(*args) for args in zip(sender_args, receiver_args, strict=False))
 
 
 def _check_callable_compatibility(sender_args: tuple[Any, ...], receiver_args: tuple[Any, ...]) -> bool:

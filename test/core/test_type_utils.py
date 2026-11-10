@@ -545,6 +545,10 @@ def test_list_and_iterable_are_not_compatible_strict(sender_type, receiver_type)
 incompatible_type_cases = [
     pytest.param(Tuple[int, str], Tuple[Any], id="tuple-of-primitive-to-tuple-of-any-different-lengths"),
     pytest.param(tuple[int, str], tuple[Any], id="tuple-of-primitive-to-tuple-of-any-different-lengths"),
+    pytest.param(Tuple[int], Tuple[int, str], id="shorter-tuple-to-longer-tuple"),
+    pytest.param(tuple[int], tuple[int, str], id="shorter-tuple-to-longer-tuple"),
+    pytest.param(tuple[int], tuple[Any, Any], id="shorter-tuple-to-longer-tuple-of-any"),
+    pytest.param(tuple[tuple[int], str], tuple[tuple[int, str], str], id="nested-shorter-tuple-to-nested-longer-tuple"),
     pytest.param(int, str, id="different-primitives"),
     pytest.param(Class1, Class2, id="different-classes"),
     pytest.param((List[int]), (List[str]), id="different-lists-of-primitives"),
@@ -700,6 +704,8 @@ def test_container_of_primitive_to_bare_container_strict(sender_type, receiver_t
         pytest.param(dict[Any, Any], dict, id="dict-of-any-to-bare-dict"),
         pytest.param(set[Any], set, id="set-of-any-to-bare-set"),
         pytest.param(tuple[Any], tuple, id="tuple-of-any-to-bare-tuple"),
+        pytest.param(Tuple[Any, Any], Tuple, id="tuple-of-two-any-to-bare-tuple"),
+        pytest.param(tuple[Any, Any], tuple, id="tuple-of-two-any-to-bare-tuple"),
     ],
 )
 def test_container_of_any_to_bare_container_strict(sender_type, receiver_type):

@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    ``Pipeline.connect()`` no longer accepts a connection from a tuple output with fewer items to a tuple input with
+    more items, for example ``tuple[int]`` to ``tuple[int, str]``. The strict type check only rejected a sender with
+    more arguments than the receiver, so such a connection was silently allowed. A bare ``tuple`` (or ``dict``)
+    sender is still accepted, as before.
