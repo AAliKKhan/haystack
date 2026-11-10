@@ -30,6 +30,16 @@ class ErrorKeyChatGenerator:
         return self.run(messages, **kwargs)
 
 
+class NoRepliesChatGenerator:
+    """Generator that violates the usual contract by returning an empty list of replies."""
+
+    def run(self, messages: list[ChatMessage], **kwargs: Any) -> dict[str, Any]:
+        return {"replies": []}
+
+    async def run_async(self, messages: list[ChatMessage], **kwargs: Any) -> dict[str, Any]:
+        return self.run(messages, **kwargs)
+
+
 @pytest.fixture
 def ner_prompt() -> str:
     return """-Goal-
@@ -340,6 +350,62 @@ class TestLLMMetadataExtractor:
         with pytest.raises(ValueError, match="Missing expected keys"):
             extractor.run(documents=[Document(content="content")])
         assert "Response from the LLM is not valid JSON or missing expected keys" in caplog.text
+
+    def test_run_no_replies_moves_document_to_failed_documents(self, caplog: pytest.LogCaptureFixture) -> None:
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            expected_keys=["key1"],
+            chat_generator=NoRepliesChatGenerator(),  # type: ignore[arg-type]
+        )
+
+        result = extractor.run(documents=[Document(content="content")])
+
+        assert result["documents"] == []
+        assert len(result["failed_documents"]) == 1
+        assert result["failed_documents"][0].meta == {
+            "metadata_extraction_error": "The ChatGenerator returned no replies.",
+            "metadata_extraction_response": None,
+        }
+        assert "The ChatGenerator returned no replies. Skipping metadata extraction." in caplog.text
+
+    def test_run_no_replies_raises_when_raise_on_failure_is_true(self) -> None:
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            expected_keys=["key1"],
+            chat_generator=NoRepliesChatGenerator(),  # type: ignore[arg-type]
+            raise_on_failure=True,
+        )
+
+        with pytest.raises(ValueError, match="The ChatGenerator returned no replies"):
+            extractor.run(documents=[Document(content="content")])
+
+    @pytest.mark.asyncio
+    async def test_run_async_no_replies_moves_document_to_failed_documents(self) -> None:
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            expected_keys=["key1"],
+            chat_generator=NoRepliesChatGenerator(),  # type: ignore[arg-type]
+        )
+
+        result = await extractor.run_async(documents=[Document(content="content")])
+
+        assert result["documents"] == []
+        assert len(result["failed_documents"]) == 1
+        assert result["failed_documents"][0].meta["metadata_extraction_error"] == (
+            "The ChatGenerator returned no replies."
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_async_no_replies_raises_when_raise_on_failure_is_true(self) -> None:
+        extractor = LLMMetadataExtractor(
+            prompt="prompt {{document.content}}",
+            expected_keys=["key1"],
+            chat_generator=NoRepliesChatGenerator(),  # type: ignore[arg-type]
+            raise_on_failure=True,
+        )
+
+        with pytest.raises(ValueError, match="The ChatGenerator returned no replies"):
+            await extractor.run_async(documents=[Document(content="content")])
 
     @pytest.mark.asyncio
     async def test_run_async_extracted_error_key_is_not_treated_as_failure(self) -> None:

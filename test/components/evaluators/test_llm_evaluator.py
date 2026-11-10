@@ -11,7 +11,21 @@ from haystack import Pipeline
 from haystack.components.evaluators import LLMEvaluator
 from haystack.components.generators.chat import MockChatGenerator
 from haystack.components.generators.chat.openai import OpenAIChatGenerator
-from haystack.dataclasses.chat_message import ChatMessage
+from haystack.dataclasses.chat_message import ChatMessage, ToolCall
+
+# Chat generator outputs without any usable text: no replies at all, or a reply that only contains a tool call
+REPLIES_WITHOUT_TEXT = [[], [ChatMessage.from_assistant(tool_calls=[ToolCall(tool_name="tool", arguments={})])]]
+
+
+def _make_evaluator(monkeypatch, raise_on_failure):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-api-key")
+    return LLMEvaluator(
+        instructions="test-instruction",
+        inputs=[("predicted_answers", list[str])],
+        outputs=["score"],
+        examples=[{"inputs": {"predicted_answers": "Football is the most popular sport."}, "outputs": {"score": 0}}],
+        raise_on_failure=raise_on_failure,
+    )
 
 
 class TestLLMEvaluator:
@@ -418,6 +432,33 @@ class TestLLMEvaluator:
         ):  # json_utils/LLMEvaluator might raise JSONDecodeError which inherits from ValueError or wrapped
             component.run(predicted_answers=["answer"])
 
+    @pytest.mark.parametrize("replies", REPLIES_WITHOUT_TEXT, ids=["no_replies", "reply_without_text"])
+    def test_run_reply_without_text_raise_on_failure_false(self, monkeypatch, caplog, replies):
+        component = _make_evaluator(monkeypatch, raise_on_failure=False)
+        monkeypatch.setattr(
+            "haystack.components.evaluators.llm_evaluator.OpenAIChatGenerator.run",
+            lambda self, *args, **kwargs: {"replies": replies},
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = component.run(predicted_answers=["answer", "another answer"])
+
+        assert result["results"] == [None, None]
+        assert result["meta"] is None
+        assert "LLMEvaluator failed to parse the ChatGenerator response" in caplog.text
+        assert "LLMEvaluator failed for 2 out of 2 inputs. The results for these inputs are None." in caplog.text
+
+    @pytest.mark.parametrize("replies", REPLIES_WITHOUT_TEXT, ids=["no_replies", "reply_without_text"])
+    def test_run_reply_without_text_raise_on_failure_true(self, monkeypatch, replies):
+        component = _make_evaluator(monkeypatch, raise_on_failure=True)
+        monkeypatch.setattr(
+            "haystack.components.evaluators.llm_evaluator.OpenAIChatGenerator.run",
+            lambda self, *args, **kwargs: {"replies": replies},
+        )
+
+        with pytest.raises(ValueError, match="returned no reply or a reply without text"):
+            component.run(predicted_answers=["answer"])
+
 
 class TestLLMEvaluatorAsync:
     @pytest.mark.asyncio
@@ -476,6 +517,26 @@ class TestLLMEvaluatorAsync:
 
         results = await component.run_async(questions=["question"], predicted_answers=["answer"])
         assert results == {"results": [{"score": 0}], "meta": None}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "replies",
+        [[], [ChatMessage.from_assistant(tool_calls=[ToolCall(tool_name="tool", arguments={})])]],
+        ids=["no_replies", "reply_without_text"],
+    )
+    async def test_run_async_reply_without_text_raise_on_failure_false(self, monkeypatch, replies):
+        component = _make_evaluator(monkeypatch, raise_on_failure=False)
+
+        async def chat_generator_run_async(self, *args, **kwargs):
+            return {"replies": replies}
+
+        monkeypatch.setattr(
+            "haystack.components.evaluators.llm_evaluator.OpenAIChatGenerator.run_async", chat_generator_run_async
+        )
+
+        result = await component.run_async(predicted_answers=["answer"])
+
+        assert result["results"] == [None]
 
     @pytest.mark.asyncio
     async def test_run_async_raise_on_failure_false(self, monkeypatch, caplog):
