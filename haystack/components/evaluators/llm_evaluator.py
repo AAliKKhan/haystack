@@ -202,27 +202,43 @@ class LLMEvaluator:
                 )
                 raise ValueError(msg)
 
-    def _parse_reply(self, reply_text: str) -> dict[str, Any] | None:
+    def _parse_reply(self, reply_text: str | None) -> dict[str, Any] | None:
         """
         Parse the chat generator's reply into a dictionary with the expected output keys.
 
-        :param reply_text: The text of the chat generator's reply.
+        :param reply_text: The text of the chat generator's reply, or `None` if the chat generator returned no reply or
+            a reply without text.
         :returns: The parsed dictionary, or `None` if parsing fails and `raise_on_failure` is False.
         :raises ValueError: If parsing fails and `raise_on_failure` is True.
         """
+        if reply_text is None:
+            self._handle_parse_failure(
+                reply_text, ValueError("The ChatGenerator returned no reply or a reply without text.")
+            )
+            return None
         try:
             return _parse_dict_from_json(reply_text, expected_keys=self.outputs, raise_on_failure=True)
         except ValueError as e:
-            if self.raise_on_failure:
-                raise
-            logger.warning(
-                "{component} failed to parse the ChatGenerator response: {response}. Setting the result for this "
-                "input to None. Error: {error}",
-                component=type(self).__name__,
-                response=reply_text,
-                error=e,
-            )
+            self._handle_parse_failure(reply_text, e)
             return None
+
+    def _handle_parse_failure(self, reply_text: str | None, error: ValueError) -> None:
+        """
+        Raise the error if `raise_on_failure` is True, otherwise log a warning.
+
+        :param reply_text: The text of the chat generator's reply, if any.
+        :param error: The error that occurred while parsing the reply.
+        :raises ValueError: If `raise_on_failure` is True.
+        """
+        if self.raise_on_failure:
+            raise error
+        logger.warning(
+            "{component} failed to parse the ChatGenerator response: {response}. Setting the result for this "
+            "input to None. Error: {error}",
+            component=type(self).__name__,
+            response=reply_text,
+            error=error,
+        )
 
     @component.output_types(results=list[dict[str, Any]], meta=list[dict[str, Any]] | None)
     def run(self, **inputs: Any) -> dict[str, Any]:
@@ -275,15 +291,17 @@ class LLMEvaluator:
                 errors += 1
                 continue
 
-            parsed_result = self._parse_reply(result["replies"][0].text)
+            replies = result.get("replies")
+            reply = replies[0] if replies else None
+            parsed_result = self._parse_reply(reply.text if reply is not None else None)
             if parsed_result is None:
                 results.append(None)
                 errors += 1
             else:
                 results.append(parsed_result)
 
-            if result["replies"][0].meta:
-                metadata.append(result["replies"][0].meta)
+            if reply is not None and reply.meta:
+                metadata.append(reply.meta)
 
         if errors > 0:
             logger.warning(
@@ -359,15 +377,17 @@ class LLMEvaluator:
                 errors += 1
                 continue
 
-            parsed_result = self._parse_reply(result["replies"][0].text)
+            replies = result.get("replies")
+            reply = replies[0] if replies else None
+            parsed_result = self._parse_reply(reply.text if reply is not None else None)
             if parsed_result is None:
                 results.append(None)
                 errors += 1
             else:
                 results.append(parsed_result)
 
-            if result["replies"][0].meta:
-                metadata.append(result["replies"][0].meta)
+            if reply is not None and reply.meta:
+                metadata.append(reply.meta)
 
         if errors > 0:
             logger.warning(

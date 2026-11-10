@@ -1,0 +1,8 @@
+---
+fixes:
+  - |
+    ``LLMEvaluator`` (and so ``FaithfulnessEvaluator`` and ``ContextRelevanceEvaluator``) and ``LLMMetadataExtractor``
+    no longer crash with an ``AttributeError`` or ``IndexError`` when the chat generator returns a reply without text
+    or an empty list of replies. With ``raise_on_failure=False`` the affected input gets a ``None`` result
+    (``LLMEvaluator``) or the document is moved to ``failed_documents`` (``LLMMetadataExtractor``), as for any other
+    unusable reply. With ``raise_on_failure=True`` a ``ValueError`` is raised.

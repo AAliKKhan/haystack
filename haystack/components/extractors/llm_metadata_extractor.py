@@ -324,7 +324,7 @@ class LLMMetadataExtractor:
                 error=e,
             )
             return self._fail(document, "LLM failed with exception: " + str(e))
-        return self._process_reply(document, result["replies"][0])
+        return self._process_replies(document, result.get("replies"))
 
     async def _run_async(
         self, document: Document, prompt: ChatMessage | None, parent_span: tracing.Span | None = None
@@ -347,7 +347,21 @@ class LLMMetadataExtractor:
                 error=e,
             )
             return self._fail(document, "LLM failed with exception: " + str(e))
-        return self._process_reply(document, result["replies"][0])
+        return self._process_replies(document, result.get("replies"))
+
+    def _process_replies(self, document: Document, replies: list[ChatMessage] | None) -> tuple[Document, bool]:
+        """
+        Parse the first of the chat generator's replies into metadata.
+
+        Returns (updated_document, True if success else False).
+        """
+        if not replies:
+            error = "The ChatGenerator returned no replies."
+            if self.raise_on_failure:
+                raise ValueError(error)
+            logger.warning("{error} Skipping metadata extraction.", error=error)
+            return self._fail(document, error)
+        return self._process_reply(document, replies[0])
 
     def _process_reply(self, document: Document, reply: ChatMessage) -> tuple[Document, bool]:
         """
