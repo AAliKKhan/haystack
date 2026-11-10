@@ -14,7 +14,7 @@ def test_init_default():
     assert not cleaner._convert_to_lowercase
     assert not cleaner._remove_punctuation
     assert not cleaner._remove_numbers
-    assert cleaner._regex is None
+    assert cleaner._regexes == []
     assert cleaner._translator is None
 
 
@@ -55,6 +55,40 @@ def test_run_with_multiple_regexps():
     result = cleaner.run(texts=["Open123! Source", "Haystack.AI"])
     assert len(result) == 1
     assert result["texts"] == ["Open Source", "HaystackAI"]
+
+
+def test_run_regexps_do_not_share_group_numbers():
+    # `\1` in the second pattern must refer to the group of the second pattern, not to the first one
+    cleaner = TextCleaner(remove_regexps=[r"(a)\1", r"(b)\1"])
+    result = cleaner.run(texts=["xxbbxx aa"])
+    assert result["texts"] == ["xxxx "]
+
+
+def test_run_regexps_do_not_share_inline_flags():
+    # an inline flag at the start of a later pattern used to make the combined pattern invalid
+    cleaner = TextCleaner(remove_regexps=["foo", "(?i)bar"])
+    result = cleaner.run(texts=["foo Bar baz"])
+    assert result["texts"] == ["  baz"]
+
+
+def test_run_regexps_apply_leftmost_match_first():
+    # same result as a single alternation of the patterns: the leftmost match wins, then the first pattern
+    cleaner = TextCleaner(remove_regexps=["b", "ab", "abc"])
+    result = cleaner.run(texts=["abc ab b"])
+    assert result["texts"] == ["c  "]
+
+
+def test_run_regexps_do_not_join_text_around_removed_match():
+    # removing a match must not create a new match out of the surrounding text
+    cleaner = TextCleaner(remove_regexps=["x", "ab"])
+    result = cleaner.run(texts=["axb"])
+    assert result["texts"] == ["ab"]
+
+
+def test_run_regexps_ignore_empty_matches():
+    cleaner = TextCleaner(remove_regexps=["a*", "b"])
+    result = cleaner.run(texts=["baab c", ""])
+    assert result["texts"] == [" c", ""]
 
 
 def test_run_with_convert_to_lowercase():

@@ -1,0 +1,8 @@
+---
+fixes:
+  - |
+    ``TextCleaner`` now compiles each pattern of ``remove_regexps`` separately instead of joining them into a single
+    ``|`` alternation. Previously, backreferences such as ``\1`` in a later pattern pointed to the groups of an earlier
+    pattern, and an inline flag such as ``(?i)`` in any pattern but the first made the component fail with
+    ``re.error: global flags not at the start of the expression``. Patterns that don't use groups or flags behave
+    exactly as before.
